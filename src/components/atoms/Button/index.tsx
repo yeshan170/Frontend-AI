@@ -8,7 +8,8 @@ export const Button = ({
     label,
     children,
     type = 'default',
-    isDisable = false
+    isDisable = false,
+    htmlType = 'button'
 }: IButtonProps) => {
     const baseClasses =
         'flex items-center gap-2.5 font-medium text-center whitespace-nowrap align-middle select-none border border-transparent py-1.5 px-3 text-base leading-6 rounded transition-all duration-150 cursor-pointer';
@@ -26,7 +27,8 @@ export const Button = ({
         info: 'bg-cyan-600 text-white border-cyan-600 hover:bg-cyan-500 hover:border-cyan-400',
         light: 'bg-gray-100 text-gray-800 border-gray-100 hover:bg-gray-200 hover:border-gray-300',
         dark: 'bg-gray-800 text-white border-gray-800 hover:bg-gray-900 hover:border-gray-900',
-        link: 'bg-transparent text-gray-600 hover:text-blue-700 transition duration-300'
+        link: 'bg-transparent text-gray-600 hover:text-blue-700 transition duration-300',
+        submit: 'px-6 py-3 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition duration-300'
     };
 
     const buttonType = isDisable ? 'default' : type;
@@ -34,7 +36,7 @@ export const Button = ({
 
     return (
         <button
-            type="button"
+            type={htmlType}
             className={`${baseClasses} ${typeClasses[buttonType]} ${disabledClasses} ${className}`}
             onClick={onClick}
             disabled={isDisable}

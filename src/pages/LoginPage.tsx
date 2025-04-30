@@ -1,16 +1,38 @@
 import { LoginForm } from '@/components/molecules/Form/loginForm';
 import { useNavigate } from 'react-router-dom';
+import { useLoginMutation } from '@/services/userApi';
 
 export const LoginPage = () => {
     const navigate = useNavigate();
+    const [login, { isLoading }] = useLoginMutation();
 
-    // Placeholder onSubmit function - replace with actual login logic
-    const handleLogin = (email: string, password: string) => {
-        console.log('Attempting login with:', email, password);
-        // Simulate successful login and navigate
-        // In a real app, you'd call an API, handle errors, store tokens, etc.
-        alert('Login successful! (Placeholder)');
-        navigate('/'); // Navigate to home or dashboard after login
+    const handleLogin = async (email: string, password: string) => {
+        try {
+            console.log('Starting login process...');
+            const result = await login({ email, password }).unwrap();
+            console.log('Login response:', {
+                accessToken: result.accessToken ? 'present' : 'missing',
+                refreshToken: result.refreshToken ? 'present' : 'missing',
+                user: result.user
+            });
+
+            // Store user data in localStorage
+            localStorage.setItem('user', JSON.stringify(result.user));
+
+            // Navigation based on user role
+            const userRole = result.user.role;
+            console.log('User role:', userRole);
+
+            // Navigate to the home page of respective role
+            const homePath = userRole === 'doctor' ? '/doctor/home' : '/patient/home';
+            console.log('Navigating to:', homePath);
+
+            navigate(homePath, { replace: true });
+        } catch (error: any) {
+            console.error('Login failed:', error);
+            const errorMessage = error.data?.message || 'Invalid email or password';
+            alert(errorMessage);
+        }
     };
 
     return (
@@ -23,7 +45,7 @@ export const LoginPage = () => {
             </div>
 
             <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-                <LoginForm onSubmit={handleLogin} />
+                <LoginForm onSubmit={handleLogin} isLoading={isLoading} />
             </div>
         </div>
     );

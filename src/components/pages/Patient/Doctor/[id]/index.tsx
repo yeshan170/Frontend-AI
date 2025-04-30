@@ -1,56 +1,37 @@
-import { useState } from "react";
-import { Check, Clock, Heart, MapPin, MessageSquare, Phone, Star, Video, User } from 'lucide-react';
+import { useState } from 'react';
+import {
+    Check,
+    Clock,
+    Heart,
+    MapPin,
+    MessageSquare,
+    Phone,
+    Star,
+    Video,
+    User,
+    Calendar
+} from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useGetDoctorByIdQuery } from '@/services/doctorApi';
+import { useCreateAppointmentMutation } from '@/services/appointmentApi';
+import { toast } from 'react-hot-toast';
 
-// Mock data for the doctor
-const doctor = {
-    id: 1,
-    name: 'Dr. Sarah Johnson',
-    specialty: 'Cardiology',
-    subSpecialty: 'Interventional Cardiology',
-    rating: 4.9,
-    reviewCount: 124,
-    location: 'New York Medical Center',
-    address: '123 Medical Plaza, New York, NY 10001',
-    experience: '15 years',
-    image: '/placeholder.svg?height=300&width=300',
-    bio: 'Dr. Sarah Johnson is a board-certified cardiologist with over 15 years of experience in diagnosing and treating heart conditions. She specializes in interventional cardiology and has performed over 1,000 cardiac catheterizations and stent placements.',
-    education: [
-        { degree: 'MD', institution: 'Harvard Medical School', year: '2005' },
-        { degree: 'Residency', institution: 'Massachusetts General Hospital', year: '2009' },
-        { degree: 'Fellowship', institution: 'Cleveland Clinic', year: '2012' }
-    ],
-    languages: ['English', 'Spanish'],
-    consultationFee: '$200'
-};
-
-// Mock data for available time slots
-const availableDates = [
-    { date: '2023-05-15', day: 'Mon', slots: 5 },
-    { date: '2023-05-16', day: 'Tue', slots: 3 },
-    { date: '2023-05-17', day: 'Wed', slots: 0 },
-    { date: '2023-05-18', day: 'Thu', slots: 7 },
-    { date: '2023-05-19', day: 'Fri', slots: 2 },
-    { date: '2023-05-22', day: 'Mon', slots: 4 },
-    { date: '2023-05-23', day: 'Tue', slots: 6 }
-];
-
+// Mock data for available time slots only - will be replaced with actual schedules
 const timeSlots = [
     { id: 1, time: '09:00 AM', available: true },
-    { id: 2, time: '09:30 AM', available: true },
-    { id: 3, time: '10:00 AM', available: false },
-    { id: 4, time: '10:30 AM', available: true },
-    { id: 5, time: '11:00 AM', available: true },
-    { id: 6, time: '11:30 AM', available: false },
-    { id: 7, time: '01:00 PM', available: true },
-    { id: 8, time: '01:30 PM', available: true },
-    { id: 9, time: '02:00 PM', available: true },
-    { id: 10, time: '02:30 PM', available: false },
-    { id: 11, time: '03:00 PM', available: true },
-    { id: 12, time: '03:30 PM', available: true }
+    { id: 2, time: '10:00 AM', available: true },
+    { id: 3, time: '11:00 AM', available: true },
+    { id: 4, time: '02:00 PM', available: true },
+    { id: 5, time: '03:00 PM', available: true },
+    { id: 6, time: '04:00 PM', available: true }
 ];
 
 export const DoctorDetails = () => {
-    const [selectedDate, setSelectedDate] = useState<string | null>(availableDates[0].date);
+    const navigate = useNavigate();
+    const { id: doctorId } = useParams();
+    const { data: doctor, isLoading: isDoctorLoading } = useGetDoctorByIdQuery(doctorId || '');
+    const [createAppointment, { isLoading: isBooking }] = useCreateAppointmentMutation();
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [selectedTimeSlot, setSelectedTimeSlot] = useState<number | null>(null);
     const [appointmentType, setAppointmentType] = useState<'in-person' | 'video'>('in-person');
     const [showBookingModal, setShowBookingModal] = useState(false);
@@ -64,358 +45,216 @@ export const DoctorDetails = () => {
         setSelectedTimeSlot(slotId);
     };
 
-    const handleBookAppointment = () => {
+    const handleBookAppointmentClick = (e: React.MouseEvent) => {
+        e.preventDefault();
         if (selectedDate && selectedTimeSlot) {
             setShowBookingModal(true);
         }
     };
-    
+
+    const handleConfirmBooking = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        if (!selectedDate || !selectedTimeSlot || !doctorId) return;
+
+        const selectedSlot = timeSlots.find((slot) => slot.id === selectedTimeSlot);
+        if (!selectedSlot) return;
+
+        try {
+            // Parse the time string to get hours and minutes
+            const [time, meridian] = selectedSlot.time.split(' ');
+            const [hours, minutes] = time.split(':');
+            let startHour = parseInt(hours);
+
+            // Convert to 24-hour format
+            if (meridian === 'PM' && startHour !== 12) {
+                startHour += 12;
+            } else if (meridian === 'AM' && startHour === 12) {
+                startHour = 0;
+            }
+
+            // Format times
+            const startTime = `${startHour.toString().padStart(2, '0')}:${minutes}`;
+            const endHour = (startHour + 1) % 24;
+            const endTime = `${endHour.toString().padStart(2, '0')}:${minutes}`;
+
+            await createAppointment({
+                doctorId,
+                date: selectedDate,
+                startTime,
+                endTime,
+                type: appointmentType === 'video' ? 'virtual' : 'in-person',
+                location: appointmentType === 'video' ? 'Video Call' : 'Main Clinic'
+            }).unwrap();
+
+            toast.success('Appointment booked successfully!');
+            setShowBookingModal(false);
+            // Optionally redirect to appointments page
+            navigate('/patient/appointments');
+        } catch (error) {
+            console.error('Error booking appointment:', error);
+            toast.error('Failed to book appointment. Please try again.');
+        }
+    };
+
+    if (isDoctorLoading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            </div>
+        );
+    }
+
+    if (!doctor) {
+        return <div className="text-center py-8 text-red-500">Doctor not found.</div>;
+    }
+
     return (
-        <div className="space-y-8">
-            {/* Doctor profile header */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <button
+                onClick={() => navigate(-1)}
+                className="mb-6 text-indigo-600 hover:text-indigo-700 flex items-center"
+            >
+                ← Back to Doctors
+            </button>
+
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                 <div className="p-6 sm:p-8">
                     <div className="flex flex-col md:flex-row gap-6">
-                        <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-white shadow-md mx-auto md:mx-0">
-                            <img
-                                src={doctor.image || '/placeholder.svg'}
-                                alt={doctor.name}
-                                width={160}
-                                height={160}
-                                className="object-cover"
-                            />
-                        </div>
-                        <div className="flex-1 text-center md:text-left">
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                        <div className="flex-1">
+                            <h1 className="text-2xl font-bold text-gray-900 mb-2">{doctor.name}</h1>
+                            <p className="text-lg text-indigo-600 mb-4">{doctor.specialization}</p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                <div className="flex items-center">
+                                    <User className="h-5 w-5 text-gray-400 mr-2" />
+                                    <span>SLMC: {doctor.slmcRegistrationNo}</span>
+                                </div>
+                                <div className="flex items-center">
+                                    <Clock className="h-5 w-5 text-gray-400 mr-2" />
+                                    <span>{doctor.experience} years experience</span>
+                                </div>
+                                <div className="flex items-center">
+                                    <Phone className="h-5 w-5 text-gray-400 mr-2" />
+                                    <span>{doctor.contactNumber}</span>
+                                </div>
+                                <div className="flex items-center">
+                                    <Calendar className="h-5 w-5 text-gray-400 mr-2" />
+                                    <span>Available for appointments</span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
                                 <div>
-                                    <h1 className="text-2xl font-bold text-gray-900">
-                                        {doctor.name}
-                                    </h1>
-                                    <p className="text-indigo-600">
-                                        {doctor.specialty} • {doctor.subSpecialty}
-                                    </p>
+                                    <h3 className="font-medium text-gray-900">Qualification</h3>
+                                    <p className="text-gray-600">{doctor.qualification}</p>
                                 </div>
-                                <button className="mt-4 md:mt-0 flex items-center justify-center gap-1 text-gray-500 hover:text-red-500">
-                                    <Heart className="h-5 w-5" />
-                                    <span className="text-sm">Save to favorites</span>
-                                </button>
-                            </div>
-
-                            <div className="flex flex-wrap justify-center md:justify-start gap-4 mt-4">
-                                <div className="flex items-center">
-                                    <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
-                                    <span className="ml-1 font-medium">{doctor.rating}</span>
-                                    <span className="ml-1 text-gray-500">
-                                        ({doctor.reviewCount} reviews)
-                                    </span>
-                                </div>
-                                <div className="flex items-center">
-                                    <MapPin className="h-5 w-5 text-gray-400" />
-                                    <span className="ml-1 text-gray-600">{doctor.location}</span>
-                                </div>
-                                <div className="flex items-center">
-                                    <Clock className="h-5 w-5 text-gray-400" />
-                                    <span className="ml-1 text-gray-600">
-                                        {doctor.experience} experience
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-wrap justify-center md:justify-start gap-3 mt-6">
-                                <button className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-                                    Book Appointment
-                                </button>
-                                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-                                    <Phone className="inline-block h-4 w-4 mr-1" />
-                                    Call Clinic
-                                </button>
-                                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-                                    <MessageSquare className="inline-block h-4 w-4 mr-1" />
-                                    Send Message
-                                </button>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Doctor info */}
-                <div className="lg:col-span-1 space-y-6">
-                    <div className="bg-white rounded-xl shadow-sm p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                            About Dr. Sarah Johnson
-                        </h2>
-                        <p className="text-gray-600">{doctor.bio}</p>
-
-                        <div className="mt-6">
-                            <h3 className="font-medium text-gray-900 mb-2">Education</h3>
-                            <ul className="space-y-2">
-                                {doctor.education.map((edu, index) => (
-                                    <li key={index} className="flex items-start">
-                                        <Check className="h-5 w-5 text-green-500 mr-2" />
-                                        <div>
-                                            <p className="font-medium text-gray-800">
-                                                {edu.degree}
-                                            </p>
-                                            <p className="text-sm text-gray-600">
-                                                {edu.institution}, {edu.year}
-                                            </p>
+                        <div className="md:w-1/3">
+                            <div className="bg-gray-50 rounded-lg p-6">
+                                <h3 className="font-medium text-gray-900 mb-4">Book Appointment</h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">
+                                            Appointment Type
+                                        </label>
+                                        <div className="mt-2 space-x-2">
+                                            <button
+                                                className={`px-4 py-2 rounded-md ${
+                                                    appointmentType === 'in-person'
+                                                        ? 'bg-indigo-600 text-white'
+                                                        : 'bg-white text-gray-700 border border-gray-300'
+                                                }`}
+                                                onClick={() => setAppointmentType('in-person')}
+                                            >
+                                                In Person
+                                            </button>
+                                            <button
+                                                className={`px-4 py-2 rounded-md ${
+                                                    appointmentType === 'video'
+                                                        ? 'bg-indigo-600 text-white'
+                                                        : 'bg-white text-gray-700 border border-gray-300'
+                                                }`}
+                                                onClick={() => setAppointmentType('video')}
+                                            >
+                                                Video Call
+                                            </button>
                                         </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
+                                    </div>
 
-                        <div className="mt-6">
-                            <h3 className="font-medium text-gray-900 mb-2">Languages</h3>
-                            <div className="flex flex-wrap gap-2">
-                                {doctor.languages.map((language, index) => (
-                                    <span
-                                        key={index}
-                                        className="px-3 py-1 bg-indigo-50 text-indigo-700 text-sm rounded-full"
-                                    >
-                                        {language}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="mt-6 pt-6 border-t border-gray-200">
-                            <div className="flex items-center justify-between">
-                                <span className="text-gray-600">Consultation Fee</span>
-                                <span className="font-semibold text-gray-900">
-                                    {doctor.consultationFee}
-                                </span>
-                            </div>
-                            <div className="flex items-center justify-between mt-2">
-                                <span className="text-gray-600">Address</span>
-                                <span className="text-gray-900">{doctor.address}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl shadow-sm p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                            Patient Reviews
-                        </h2>
-                        <div className="flex items-center mb-4">
-                            <div className="flex items-center mr-4">
-                                <Star className="h-8 w-8 text-yellow-400 fill-yellow-400" />
-                                <span className="ml-2 text-3xl font-bold">{doctor.rating}</span>
-                            </div>
-                            <div>
-                                <p className="text-gray-600">
-                                    {doctor.reviewCount} verified patient reviews
-                                </p>
-                                <div className="flex items-center mt-1">
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                        <Star
-                                            key={star}
-                                            className={`h-4 w-4 ${
-                                                star <= Math.floor(doctor.rating)
-                                                    ? 'text-yellow-400 fill-yellow-400'
-                                                    : 'text-gray-300'
-                                            }`}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        <button className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-                            View All Reviews
-                        </button>
-                    </div>
-                </div>
-
-                {/* Appointment booking */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-white rounded-xl shadow-sm p-6">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                            Book an Appointment
-                        </h2>
-
-                        <div className="mb-6">
-                            <h3 className="font-medium text-gray-700 mb-3">
-                                Select Appointment Type
-                            </h3>
-                            <div className="flex flex-wrap gap-3">
-                                <button
-                                    className={`flex items-center px-4 py-2 rounded-md ${
-                                        appointmentType === 'in-person'
-                                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                                    }`}
-                                    onClick={() => setAppointmentType('in-person')}
-                                >
-                                    <User className="h-5 w-5 mr-2" />
-                                    In-Person Visit
-                                </button>
-                                <button
-                                    className={`flex items-center px-4 py-2 rounded-md ${
-                                        appointmentType === 'video'
-                                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                                    }`}
-                                    onClick={() => setAppointmentType('video')}
-                                >
-                                    <Video className="h-5 w-5 mr-2" />
-                                    Video Consultation
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="mb-6">
-                            <h3 className="font-medium text-gray-700 mb-3">Select Date</h3>
-                            <div className="flex overflow-x-auto pb-2 space-x-2">
-                                {availableDates.map((dateObj) => (
                                     <button
-                                        key={dateObj.date}
-                                        className={`flex flex-col items-center min-w-[80px] px-3 py-2 rounded-md ${
-                                            selectedDate === dateObj.date
-                                                ? 'bg-indigo-600 text-white'
-                                                : dateObj.slots === 0
-                                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                                        }`}
-                                        onClick={() =>
-                                            dateObj.slots > 0 && handleDateSelect(dateObj.date)
-                                        }
-                                        disabled={dateObj.slots === 0}
+                                        className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                                        onClick={handleBookAppointmentClick}
                                     >
-                                        <span className="text-sm font-medium">{dateObj.day}</span>
-                                        <span className="text-lg font-semibold">
-                                            {new Date(dateObj.date).getDate()}
-                                        </span>
-                                        <span className="text-xs mt-1">
-                                            {dateObj.slots > 0
-                                                ? `${dateObj.slots} slots`
-                                                : 'No slots'}
-                                        </span>
+                                        Book Appointment
                                     </button>
-                                ))}
+                                </div>
                             </div>
                         </div>
-
-                        <div className="mb-6">
-                            <h3 className="font-medium text-gray-700 mb-3">Select Time</h3>
-                            {selectedDate ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                                    {timeSlots.map((slot) => (
-                                        <button
-                                            key={slot.id}
-                                            className={`px-3 py-2 rounded-md text-center ${
-                                                selectedTimeSlot === slot.id
-                                                    ? 'bg-indigo-600 text-white'
-                                                    : !slot.available
-                                                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                                            }`}
-                                            onClick={() =>
-                                                slot.available && handleTimeSlotSelect(slot.id)
-                                            }
-                                            disabled={!slot.available}
-                                        >
-                                            {slot.time}
-                                        </button>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-gray-500">Please select a date first</p>
-                            )}
-                        </div>
-
-                        <button
-                            className={`w-full px-4 py-3 rounded-md font-medium ${
-                                selectedDate && selectedTimeSlot
-                                    ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                                    : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                            }`}
-                            disabled={!selectedDate || !selectedTimeSlot}
-                            onClick={handleBookAppointment}
-                        >
-                            Book Appointment
-                        </button>
                     </div>
                 </div>
             </div>
 
-            {/* Booking confirmation modal */}
+            {/* Booking Modal */}
             {showBookingModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6">
                         <h3 className="text-xl font-bold text-gray-900 mb-4">
-                            Confirm Appointment
+                            Book Appointment with {doctor.name}
                         </h3>
                         <div className="space-y-4">
-                            <div className="flex items-center">
-                                <div className="w-12 h-12 rounded-full overflow-hidden mr-4">
-                                    <img
-                                        src={doctor.image || '/placeholder.svg'}
-                                        alt={doctor.name}
-                                        width={48}
-                                        height={48}
-                                        className="object-cover"
-                                    />
-                                </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Select Date
+                                </label>
+                                <input
+                                    type="date"
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    value={selectedDate || ''}
+                                    onChange={(e) => setSelectedDate(e.target.value)}
+                                    min={new Date().toISOString().split('T')[0]}
+                                />
+                            </div>
+
+                            {selectedDate && (
                                 <div>
-                                    <p className="font-medium text-gray-900">{doctor.name}</p>
-                                    <p className="text-sm text-gray-600">{doctor.specialty}</p>
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Select Time
+                                    </label>
+                                    <div className="mt-2 grid grid-cols-3 gap-2">
+                                        {timeSlots.map((slot) => (
+                                            <button
+                                                key={slot.id}
+                                                className={`px-3 py-2 text-sm rounded-md ${
+                                                    selectedTimeSlot === slot.id
+                                                        ? 'bg-indigo-600 text-white'
+                                                        : 'bg-white border border-gray-300 text-gray-700'
+                                                }`}
+                                                onClick={() => handleTimeSlotSelect(slot.id)}
+                                            >
+                                                {slot.time}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
-                            <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Date:</span>
-                                    <span className="font-medium">
-                                        {selectedDate &&
-                                            new Date(selectedDate).toLocaleDateString('en-US', {
-                                                weekday: 'long',
-                                                year: 'numeric',
-                                                month: 'long',
-                                                day: 'numeric'
-                                            })}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Time:</span>
-                                    <span className="font-medium">
-                                        {
-                                            timeSlots.find((slot) => slot.id === selectedTimeSlot)
-                                                ?.time
-                                        }
-                                    </span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Type:</span>
-                                    <span className="font-medium">
-                                        {appointmentType === 'in-person'
-                                            ? 'In-Person Visit'
-                                            : 'Video Consultation'}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Fee:</span>
-                                    <span className="font-medium">{doctor.consultationFee}</span>
-                                </div>
-                            </div>
-
-                            <div className="pt-4 border-t border-gray-200">
-                                <div className="flex flex-col sm:flex-row gap-3">
-                                    <button
-                                        className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                                        onClick={() => setShowBookingModal(false)}
-                                    >
-                                        Confirm & Pay
-                                    </button>
-                                    <button
-                                        className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                                        onClick={() => setShowBookingModal(false)}
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
+                            <div className="pt-4 flex gap-3">
+                                <button
+                                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                                    onClick={handleConfirmBooking}
+                                    disabled={!selectedDate || !selectedTimeSlot || isBooking}
+                                >
+                                    {isBooking ? 'Booking...' : 'Confirm Booking'}
+                                </button>
+                                <button
+                                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                                    onClick={() => setShowBookingModal(false)}
+                                    disabled={isBooking}
+                                >
+                                    Cancel
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -424,4 +263,3 @@ export const DoctorDetails = () => {
         </div>
     );
 };
-

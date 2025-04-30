@@ -3,50 +3,119 @@ import { Button } from '@/components/atoms/Button';
 import { Input } from '@/components/atoms/Input';
 import { Link } from '@/components/atoms/Link';
 import { useState } from 'react';
-import { IRegisterFormProps } from 'utils/interfaces';
 import { Typography } from '@/components/atoms/Typography';
+import type { RegisterDoctorRequest, RegisterPatientRequest } from '@/services/userApi';
 
-export const SignUpForm = ({ onSubmit }: IRegisterFormProps) => {
-    const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
+interface IRegisterFormProps {
+    onSubmit: (data: RegisterDoctorRequest | RegisterPatientRequest) => Promise<void>;
+    isLoading?: boolean;
+    userType?: 'doctor' | 'patient';
+}
+
+export const SignUpForm = ({
+    onSubmit,
+    isLoading = false,
+    userType = 'patient'
+}: IRegisterFormProps) => {
+    const [formData, setFormData] = useState({
+        name: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        specialization: '',
+        qualification: '',
+        experience: '',
+        contactNumber: '',
+        dateOfBirth: '',
+        gender: '',
+        bloodGroup: '',
+        allergies: '',
+        street: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        country: '',
+        slmcRegistrationNo: ''
+    });
+
     const [errors, setErrors] = useState<{
-        name?: string;
-        email?: string;
-        password?: string;
-        confirmPassword?: string;
+        [key: string]: string;
     }>({});
-    const [isLoading, setIsLoading] = useState(false);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setFormData((prev) => ({
+            ...prev,
+            [name]: value
+        }));
+    };
 
     const validateForm = () => {
-        const newErrors: {
-            name?: string;
-            email?: string;
-            password?: string;
-            confirmPassword?: string;
-        } = {};
+        const newErrors: { [key: string]: string } = {};
 
-        if (!name) {
+        // Common validations
+        if (!formData.name?.trim()) {
             newErrors.name = 'Name is required';
         }
 
-        if (!email) {
+        if (!formData.email?.trim()) {
             newErrors.email = 'Email is required';
-        } else if (!/\S+@\S+\.\S+/.test(email)) {
+        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
             newErrors.email = 'Email is invalid';
         }
 
-        if (!password) {
+        if (!formData.password) {
             newErrors.password = 'Password is required';
-        } else if (password.length < 6) {
+        } else if (formData.password.length < 6) {
             newErrors.password = 'Password must be at least 6 characters';
         }
 
-        if (!confirmPassword) {
+        if (!formData.confirmPassword) {
             newErrors.confirmPassword = 'Please confirm your password';
-        } else if (password !== confirmPassword) {
+        } else if (formData.password !== formData.confirmPassword) {
             newErrors.confirmPassword = 'Passwords do not match';
+        }
+
+        if (!formData.contactNumber?.trim()) {
+            newErrors.contactNumber = 'Contact number is required';
+        }
+
+        // Role-specific validations
+        if (userType === 'doctor') {
+            if (!formData.slmcRegistrationNo?.trim()) {
+                newErrors.slmcRegistrationNo = 'SLMC Registration Number is required';
+            }
+            if (!formData.specialization?.trim()) {
+                newErrors.specialization = 'Specialization is required';
+            }
+            if (!formData.qualification?.trim()) {
+                newErrors.qualification = 'Qualification is required';
+            }
+            if (!formData.experience) {
+                newErrors.experience = 'Experience is required';
+            }
+        } else {
+            if (!formData.dateOfBirth) {
+                newErrors.dateOfBirth = 'Date of birth is required';
+            }
+            if (!formData.gender) {
+                newErrors.gender = 'Gender is required';
+            }
+            if (!formData.street?.trim()) {
+                newErrors.street = 'Street address is required';
+            }
+            if (!formData.city?.trim()) {
+                newErrors.city = 'City is required';
+            }
+            if (!formData.state?.trim()) {
+                newErrors.state = 'State is required';
+            }
+            if (!formData.zipCode?.trim()) {
+                newErrors.zipCode = 'ZIP code is required';
+            }
+            if (!formData.country?.trim()) {
+                newErrors.country = 'Country is required';
+            }
         }
 
         setErrors(newErrors);
@@ -55,25 +124,67 @@ export const SignUpForm = ({ onSubmit }: IRegisterFormProps) => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        console.log('Form submission started');
 
-        if (!validateForm()) return;
-
-        setIsLoading(true);
+        if (!validateForm()) {
+            console.log('Form validation failed');
+            return;
+        }
 
         try {
-            // If onSubmit prop is provided, call it with form data
-            if (onSubmit) {
-                onSubmit(name, email, password);
+            console.log('Raw form data:', formData);
+            const commonData = {
+                name: formData.name.trim(),
+                email: formData.email.trim(),
+                password: formData.password,
+                contactNumber: formData.contactNumber.trim()
+            };
+            console.log('Common data prepared:', commonData);
+
+            if (userType === 'doctor') {
+                const doctorData: RegisterDoctorRequest = {
+                    ...commonData,
+                    role: 'doctor',
+                    slmcRegistrationNo: formData.slmcRegistrationNo.trim(),
+                    specialization: formData.specialization.trim(),
+                    qualification: formData.qualification.trim(),
+                    experience: parseInt(formData.experience)
+                };
+                console.log('Doctor data prepared:', doctorData);
+                await onSubmit(doctorData);
             } else {
-                // Default implementation - can be replaced with actual registration logic
-                console.log('Registration submitted:', { name, email, password });
-                // Simulate API call
-                await new Promise((resolve) => setTimeout(resolve, 1000));
+                const patientData: RegisterPatientRequest = {
+                    ...commonData,
+                    role: 'patient',
+                    dateOfBirth: formData.dateOfBirth,
+                    gender: formData.gender,
+                    bloodGroup: formData.bloodGroup,
+                    allergies: formData.allergies
+                        .split(',')
+                        .map((item) => item.trim())
+                        .filter((item) => item !== ''),
+                    address: {
+                        street: formData.street.trim(),
+                        city: formData.city.trim(),
+                        state: formData.state.trim(),
+                        zipCode: formData.zipCode.trim(),
+                        country: formData.country.trim()
+                    },
+                    emergencyContact: {
+                        name: 'Emergency Contact',
+                        relationship: 'Not Specified',
+                        contactNumber: formData.contactNumber
+                    }
+                };
+                console.log('Complete patient data being sent:', {
+                    ...patientData,
+                    password: '[REDACTED]'
+                });
+                await onSubmit(patientData);
             }
         } catch (error) {
-            console.error('Registration error:', error);
-        } finally {
-            setIsLoading(false);
+            console.error('Form submission error:', error);
+            throw error;
         }
     };
 
@@ -81,7 +192,7 @@ export const SignUpForm = ({ onSubmit }: IRegisterFormProps) => {
         <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-md overflow-hidden">
             <div className="px-6 py-8">
                 <Typography
-                    label="Create an Account"
+                    label={`Create ${userType === 'doctor' ? 'Doctor' : 'Patient'} Account`}
                     variant="h2"
                     className="text-center text-gray-800 mb-8"
                 />
@@ -89,43 +200,218 @@ export const SignUpForm = ({ onSubmit }: IRegisterFormProps) => {
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <Input
                         label="Full Name"
+                        name="name"
                         type="text"
                         placeholder="Enter your full name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        value={formData.name}
+                        onChange={handleChange}
                         error={errors.name}
                         required
                     />
 
                     <Input
                         label="Email Address"
+                        name="email"
                         type="email"
                         placeholder="Enter your email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        value={formData.email}
+                        onChange={handleChange}
                         error={errors.email}
                         required
                     />
 
                     <Input
                         label="Password"
+                        name="password"
                         type="password"
                         placeholder="Create a password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        value={formData.password}
+                        onChange={handleChange}
                         error={errors.password}
                         required
                     />
 
                     <Input
                         label="Confirm Password"
+                        name="confirmPassword"
                         type="password"
                         placeholder="Confirm your password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
                         error={errors.confirmPassword}
                         required
                     />
+
+                    <Input
+                        label="Contact Number"
+                        name="contactNumber"
+                        type="tel"
+                        placeholder="Enter your contact number"
+                        value={formData.contactNumber}
+                        onChange={handleChange}
+                        error={errors.contactNumber}
+                        required
+                    />
+
+                    {userType === 'doctor' ? (
+                        <>
+                            <Input
+                                label="SLMC Registration Number"
+                                name="slmcRegistrationNo"
+                                type="text"
+                                placeholder="Enter your SLMC registration number"
+                                value={formData.slmcRegistrationNo}
+                                onChange={handleChange}
+                                error={errors.slmcRegistrationNo}
+                                required
+                            />
+
+                            <Input
+                                label="Specialization"
+                                name="specialization"
+                                type="text"
+                                placeholder="Enter your specialization"
+                                value={formData.specialization}
+                                onChange={handleChange}
+                                error={errors.specialization}
+                                required
+                            />
+
+                            <Input
+                                label="Qualification"
+                                name="qualification"
+                                type="text"
+                                placeholder="Enter your qualification"
+                                value={formData.qualification}
+                                onChange={handleChange}
+                                error={errors.qualification}
+                                required
+                            />
+
+                            <Input
+                                label="Years of Experience"
+                                name="experience"
+                                type="number"
+                                placeholder="Enter years of experience"
+                                value={formData.experience}
+                                onChange={handleChange}
+                                error={errors.experience}
+                                required
+                            />
+                        </>
+                    ) : (
+                        <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <Input
+                                    label="Date of Birth"
+                                    name="dateOfBirth"
+                                    type="date"
+                                    value={formData.dateOfBirth}
+                                    onChange={handleChange}
+                                    error={errors.dateOfBirth}
+                                    required
+                                />
+                                <select
+                                    name="gender"
+                                    value={formData.gender}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                                    required
+                                >
+                                    <option value="">Select Gender</option>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <select
+                                    name="bloodGroup"
+                                    value={formData.bloodGroup}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                                    required
+                                >
+                                    <option value="">Select Blood Group</option>
+                                    <option value="A+">A+</option>
+                                    <option value="A-">A-</option>
+                                    <option value="B+">B+</option>
+                                    <option value="B-">B-</option>
+                                    <option value="AB+">AB+</option>
+                                    <option value="AB-">AB-</option>
+                                    <option value="O+">O+</option>
+                                    <option value="O-">O-</option>
+                                </select>
+
+                                <Input
+                                    label="Allergies"
+                                    name="allergies"
+                                    type="text"
+                                    placeholder="Enter allergies (comma-separated)"
+                                    value={formData.allergies}
+                                    onChange={handleChange}
+                                    error={errors.allergies}
+                                    required
+                                />
+                            </div>
+
+                            <Input
+                                label="Street Address"
+                                name="street"
+                                type="text"
+                                placeholder="Enter street address"
+                                value={formData.street}
+                                onChange={handleChange}
+                                error={errors.street}
+                                required
+                            />
+
+                            <Input
+                                label="City"
+                                name="city"
+                                type="text"
+                                placeholder="Enter city"
+                                value={formData.city}
+                                onChange={handleChange}
+                                error={errors.city}
+                                required
+                            />
+
+                            <Input
+                                label="State"
+                                name="state"
+                                type="text"
+                                placeholder="Enter state"
+                                value={formData.state}
+                                onChange={handleChange}
+                                error={errors.state}
+                                required
+                            />
+
+                            <Input
+                                label="ZIP Code"
+                                name="zipCode"
+                                type="text"
+                                placeholder="Enter ZIP code"
+                                value={formData.zipCode}
+                                onChange={handleChange}
+                                error={errors.zipCode}
+                                required
+                            />
+
+                            <Input
+                                label="Country"
+                                name="country"
+                                type="text"
+                                placeholder="Enter country"
+                                value={formData.country}
+                                onChange={handleChange}
+                                error={errors.country}
+                                required
+                            />
+                        </>
+                    )}
 
                     <div className="flex items-center">
                         <input
@@ -149,10 +435,10 @@ export const SignUpForm = ({ onSubmit }: IRegisterFormProps) => {
 
                     <Button
                         label="Create Account"
-                        type="primary"
+                        type="submit"
+                        htmlType="submit"
                         className="w-full justify-center"
                         isLoading={isLoading}
-                        onClick={() => {}}
                     />
                 </form>
 

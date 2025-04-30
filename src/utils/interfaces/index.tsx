@@ -12,12 +12,13 @@ export interface ITypography {
 }
 
 export interface IButtonProps {
-    onClick: () => void;
+    onClick?: () => void;
     label: string;
     children?: React.ReactNode;
     isLoading?: boolean;
     className?: string;
     isDisable?: boolean;
+    htmlType?: 'button' | 'submit' | 'reset';
     type?:
         | 'primary'
         | 'secondary'
@@ -28,6 +29,7 @@ export interface IButtonProps {
         | 'light'
         | 'dark'
         | 'link'
+        | 'submit'
         | 'default';
 }
 
@@ -93,8 +95,30 @@ export interface ILinkProps {
 
 export interface ILoginFormProps {
     onSubmit?: (email: string, password: string) => void;
+    isLoading?: boolean;
 }
 
 export interface IRegisterFormProps {
-    onSubmit?: (name: string, email: string, password: string) => void;
+    onSubmit?: (
+        name: string,
+        email: string,
+        password: string,
+        additionalData: {
+            contactNumber: string;
+            specialization?: string;
+            qualification?: string;
+            experience?: number;
+            dateOfBirth?: string;
+            gender?: string;
+            address?: {
+                street: string;
+                city: string;
+                state: string;
+                zipCode: string;
+                country: string;
+            };
+        }
+    ) => void;
+    isLoading?: boolean;
+    userType?: 'doctor' | 'patient';
 }

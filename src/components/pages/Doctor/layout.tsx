@@ -1,9 +1,9 @@
 import type React from 'react';
 import { useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { Calendar, FileText, Home, LogOut, Menu, User, X } from 'lucide-react';
+import { Calendar, ClipboardCheck, FileText, Home, LogOut, Menu, User, Users, X } from 'lucide-react';
 
-export default function PatientLayout({ children }: { children: React.ReactNode }) {
+export default function DoctorLayout({ children }: { children: React.ReactNode }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const { pathname } = useLocation();
 
@@ -12,10 +12,12 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
     };
 
     const navigation = [
-        { name: 'Home', href: '/patient', icon: Home },
-        { name: 'Appointments', href: '/patient/appointments', icon: Calendar },
-        // { name: 'Medical Records', href: '/patient/records', icon: FileText },
-        { name: 'Profile', href: '/patient/profile', icon: User }
+        { name: 'Dashboard', href: '/doctor', icon: Home },
+        { name: 'Appointments', href: '/doctor/appointments', icon: Calendar },
+        { name: 'Patients', href: '/doctor/patients', icon: Users },
+        { name: 'Medical Records', href: '/doctor/records', icon: FileText },
+        { name: 'Prescriptions', href: '/doctor/prescriptions', icon: ClipboardCheck },
+        { name: 'Profile', href: '/doctor/profile', icon: User },
     ];
 
     return (
@@ -24,7 +26,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             <div className="lg:hidden fixed top-4 left-4 z-50">
                 <button
                     onClick={toggleSidebar}
-                    className="p-2 rounded-md bg-white shadow-md text-gray-600 hover:text-indigo-600 focus:outline-none"
+                    className="p-2 rounded-md bg-white shadow-md text-gray-600 hover:text-blue-600 focus:outline-none"
                 >
                     {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
                 </button>
@@ -38,7 +40,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             >
                 <div className="flex flex-col h-full">
                     <div className="flex items-center justify-center h-16 border-b border-gray-200">
-                        <h2 className="text-2xl font-bold text-indigo-600">MediCare</h2>
+                        <h2 className="text-2xl font-bold text-blue-600">MediCare</h2>
                     </div>
 
                     <div className="flex-1 overflow-y-auto py-4">
@@ -51,15 +53,15 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                                         to={item.href}
                                         className={`group flex items-center px-4 py-3 text-sm font-medium rounded-md ${
                                             isActive
-                                                ? 'bg-indigo-50 text-indigo-600'
-                                                : 'text-gray-700 hover:bg-gray-50 hover:text-indigo-600'
+                                                ? 'bg-blue-50 text-blue-600'
+                                                : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600'
                                         }`}
                                     >
                                         <item.icon
                                             className={`mr-3 h-5 w-5 ${
                                                 isActive
-                                                    ? 'text-indigo-600'
-                                                    : 'text-gray-500 group-hover:text-indigo-600'
+                                                    ? 'text-blue-600'
+                                                    : 'text-gray-500 group-hover:text-blue-600'
                                             }`}
                                         />
                                         {item.name}
@@ -87,4 +89,4 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
             </div>
         </div>
     );
-}
+} 

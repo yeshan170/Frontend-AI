@@ -6,11 +6,10 @@ import { ILoginFormProps } from 'utils/interfaces';
 import { Link } from '@/components/atoms/Link';
 import { Typography } from '@/components/atoms/Typography';
 
-export const LoginForm = ({ onSubmit }: ILoginFormProps) => {
+export const LoginForm = ({ onSubmit, isLoading = false }: ILoginFormProps) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-    const [isLoading, setIsLoading] = useState(false);
 
     const validateForm = () => {
         const newErrors: { email?: string; password?: string } = {};
@@ -36,24 +35,15 @@ export const LoginForm = ({ onSubmit }: ILoginFormProps) => {
 
         if (!validateForm()) return;
 
-        setIsLoading(true);
-
         try {
-            // If onSubmit prop is provided, call it with form data
             if (onSubmit) {
-                onSubmit(email, password);
-            } else {
-                // Default implementation - can be replaced with actual authentication logic
-                console.log('Login submitted:', { email, password });
-                // Simulate API call
-                await new Promise((resolve) => setTimeout(resolve, 1000));
+                await onSubmit(email, password);
             }
         } catch (error) {
             console.error('Login error:', error);
-        } finally {
-            setIsLoading(false);
         }
     };
+
     return (
         <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-md overflow-hidden">
             <div className="px-6 py-8">
@@ -115,7 +105,7 @@ export const LoginForm = ({ onSubmit }: ILoginFormProps) => {
                         type="primary"
                         className="w-full justify-center"
                         isLoading={isLoading}
-                        onClick={() => {}}
+                        onClick={handleSubmit}
                     />
                 </form>
 
